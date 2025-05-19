@@ -10,29 +10,28 @@ async function findUid(link) {
     try {
         const response = await axios.post(
             'https://seomagnifier.com/fbid',
-            new URLSearchParams({
-                facebook: '1',
-                sitelink: link,
-            }),
-            {
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
-                },
-            }
+            new URLSearchParams({ facebook: '1', sitelink: link }),
+            { headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' } }
         );
 
-        const id = response.data;
-
-        if (!isNaN(id)) return id;
+        if (!isNaN(response.data)) return response.data;
 
         const html = await axios.get(link);
         const $ = cheerio.load(html.data);
-        const metaContent = $('meta[property="al:android:url"]').attr('content');
 
-        if (metaContent) return metaContent.split('/').pop();
+        const metaContent = $('meta[property="al:android:url"]').attr('content');
+        if (metaContent && metaContent.includes('fb://profile/')) {
+            return metaContent.split('/').pop();
+        }
+
+        const matchEntity = html.data.match(/"entity_id":"(\d+)"/);
+        if (matchEntity) return matchEntity[1];
+
+        const matchUser = html.data.match(/"userID":"(\d+)"/);
+        if (matchUser) return matchUser[1];
 
         throw new Error('Uid not found.');
-    } catch (error) {
+    } catch (err) {
         throw new Error('An error occurred while fetching Uid.');
     }
 }
@@ -46,7 +45,7 @@ app.get('/fbuid', async (req, res) => {
 
     try {
         const yuwid = await findUid(link);
-        return res.json({ yuwid });
+        return res.json({ uruid });
     } catch (error) {
         return res.status(500).json({ error: error.message });
     }
